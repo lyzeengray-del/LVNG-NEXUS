@@ -43,12 +43,60 @@ jobs:
           PROJECT_DIR=$(find extracted -name settings.gradle.kts -printf '%h\n' | head -n 1)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "Project Gradle tidak ditemukan di dalam ZIP!"
+            echo "Project Gradle tidak ditemukan!"
             exit 1
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project ditemukan: $PROJECT_DIR"
+
+      - name: Fix Java and Kotlin JVM Target
+        run: |
+          GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
+
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "app/build.gradle.kts tidak ditemukan!"
+            exit 1
+          fi
+
+          python3 - "$GRADLE_FILE" <<'PY'
+          import sys
+          from pathlib import Path
+
+          p = Path(sys.argv[1])
+          s = p.read_text()
+
+          s = s.replace(
+              "JavaVersion.VERSION_1_8",
+              "JavaVersion.VERSION_17"
+          )
+
+          s = s.replace(
+              "jvmTarget = \"1.8\"",
+              "jvmTarget = \"17\""
+          )
+
+          if "compileOptions" not in s:
+              s += """
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          """
+
+          if "kotlinOptions" not in s:
+              s += """
+          android {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          """
+
+          p.write_text(s)
+          print("Java dan Kotlin target disamakan ke 17")
+          PY
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
