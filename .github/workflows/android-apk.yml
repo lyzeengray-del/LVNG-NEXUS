@@ -17,41 +17,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract project ZIP
-        run: |
-          mkdir extracted
-          unzip -q LVNG_Nexus_CloudBuild.zip -d extracted
-          PROJECT_DIR=$(find extracted -name settings.gradle.kts -printf '%h\n' | head -n 1)
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          test -n "$PROJECT_DIR"
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-
       - name: Setup Android SDK
-        shell: bash
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
         run: |
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-
-          SDKMANAGER=$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager tidak ditemukan"
-            exit 1
-          fi
-
-          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
-
-          yes | "$SDKMANAGER" --licenses || true
-
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
-
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -59,10 +36,10 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: Build APK
-        run: gradle -p "$PROJECT_DIR" :app:assembleDebug
+        run: gradle :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LVNG-Nexus-APK
-          path: extracted/LyzeGameSpace/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
